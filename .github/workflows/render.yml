@@ -1,0 +1,87 @@
+name: Render video en paralelo
+
+on:
+  workflow_dispatch:
+    inputs:
+      shards:
+        description: "Cantidad de runners en paralelo (max 20)"
+        default: "10"
+
+env:
+  COMP: BarraXpLocura
+  TOTAL_FRAMES: "3480"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os
+          n = int("${{ inputs.shards }}"); total = int(os.environ["TOTAL_FRAMES"])
+          size = -(-total // n)
+          items = []
+          for i in range(n):
+              a = i * size; b = min(total - 1, a + size - 1)
+              if a <= b: items.append({"id": f"{i:02d}", "range": f"{a}-{b}"})
+          print("matrix=" + json.dumps({"include": items}))
+          EOF
+
+  render:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64 libpango-1.0-0 libcairo2
+      - run: npm ci
+      - run: npx remotion browser ensure
+      # Video sin audio con swangle
+      - run: npx remotion render ${{ env.COMP }} out/part-${{ matrix.id }}.mp4 --frames=${{ matrix.range }} --muted --gl=swangle --concurrency=2 --crf=17
+      - uses: actions/upload-artifact@v4
+        with:
+          name: part-${{ matrix.id }}
+          path: out/part-${{ matrix.id }}.mp4
+          retention-days: 3
+
+  finish:
+    needs: render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64 libpango-1.0-0 libcairo2
+      - run: npm ci
+      - run: pip install numpy scipy soundfile pillow
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: part-*
+          path: parts
+          merge-multiple: true
+      - name: Unir partes + audio + loudnorm
+        run: |
+          mkdir -p out
+          for f in $(ls parts/part-*.mp4 | sort); do echo "file '$PWD/$f'" >> list.txt; done
+          ffmpeg -y -f concat -safe 0 -i list.txt -c copy out/video-silent.mp4
+          npx remotion render ${{ env.COMP }} out/audio.wav --codec=wav --gl=swangle
+          ffmpeg -y -i out/video-silent.mp4 -i out/audio.wav -map 0:v -map 1:a -c:v copy -c:a aac -b:a 320k -shortest out/raw.mp4
+          python scripts/loudnorm.py out/raw.mp4 out/video.mp4
+          ffprobe -v error -show_entries stream=codec_name,width,height,nb_frames -show_entries format=duration out/video.mp4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: barra-xp-locura-final
+          path: out/video.mp4
+          retention-days: 7

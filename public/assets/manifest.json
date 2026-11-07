@@ -1,0 +1,44 @@
+{
+  "bank_name": "Studio 2D Master Assets & Sound Design Bank",
+  "license": "CC0 1.0 Universal / Public Domain",
+  "description": "Banco permanente de activos gráficos 2D y diseño sonoro táctil para Remotion",
+  "audio_sfx": {
+    "ui_clicks": [
+      "click1.wav",
+      "click2.wav",
+      "click3.wav",
+      "click4.wav",
+      "click5.wav",
+      "mouseclick1.wav",
+      "switch1.wav",
+      "switch2.wav",
+      "switch10.wav",
+      "switch20.wav"
+    ],
+    "whooshes": [
+      "whoosh_fast.wav",
+      "whoosh_cinematic.wav"
+    ],
+    "impacts": [
+      "sub_impact_thud.wav"
+    ],
+    "glitches_and_alarms": [
+      "radio_static_burst.wav",
+      "electrical_powerdown.wav"
+    ],
+    "ambience_and_tension": [
+      "tension_riser.wav"
+    ]
+  },
+  "vfx_particles": [
+    "spark_01.png",
+    "spark_02.png",
+    "smoke_01.png",
+    "smoke_02.png",
+    "flare_01.png",
+    "light_01.png",
+    "light_02.png",
+    "star_01.png",
+    "fire_01.png"
+  ]
+}
